@@ -16,7 +16,7 @@ router.post('/getShortenUrl', async (req, res) => {
   const newOriginalUrl = req.body.originalUrl
 
   try {
-    // Step 1：檢查所輸入的網址是否正常
+    // Step 1：檢查所輸入的網址是否存在
     let validUrl = new URL(newOriginalUrl);
     await isSiteExit(validUrl);
 
@@ -24,11 +24,13 @@ router.post('/getShortenUrl', async (req, res) => {
     // Step 2-1：檢查 DB 是否已有重複的原始網址，若重複則回傳既有的短網址
     const exitShortId = await findShortIdMatchedOriginalUrl(newOriginalUrl)
     if (exitShortId) {
+      console.log(exitShortId);
       res.render('index', {
         baseUrl,
         exitShortId
       })
     } else {
+      console.log('創建新短網址');
       // Step 2-2：反之，則創建新的短網址回傳使用
       const newShortId = await generateUniqueShortId()
       const newUrlShorten = new UrlShortenModel({
@@ -96,7 +98,25 @@ async function findShortIdMatchedOriginalUrl(newOriginalUrl) {
 
 // 產出短網址
 async function generateUniqueShortId() {
-  return newShortId = Math.random().toString(36).slice(-5);
+  // 預設 isShortIdDuplicate 為 true 狀態，以供 while 運行
+  let isShortIdDuplicate = true
+
+  while (isShortIdDuplicate) {
+    // Step 1：創立新的短網址
+    const newShortId = Math.random().toString(36).slice(-5)
+    // Step 2：從 DB 找尋 shortId 和 新建立短址相同的 UrlShortenModel，並宣告為 exitShortId 變數
+    const exitShortId = await UrlShortenModel.findOne({
+      shortId: newShortId
+    }).exec()
+    // Step 3-1：若 exitShortId 變數 成立，代表該短網址已被使用
+    if (exitShortId) {
+      console.log('短網址已重複，請重新建立使用')
+    } else {
+      // Step 3-2：反之，則切換為 isShortIdDuplicate 為 false 狀態，回傳 newShortId
+      isShortIdDuplicate = false
+      return newShortId
+    }
+  }
 }
 
 // 傳入短網址，回傳相對應的原始網址
